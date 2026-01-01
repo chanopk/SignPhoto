@@ -1,0 +1,273 @@
+:root {
+    --primary-color: #ffcc00; /* Vibrant Yellow/Gold */
+    --bg-color: #000000;
+    --overlay-bg: rgba(0, 0, 0, 0.6);
+    --text-color: #ffffff;
+    --control-height: 120px;
+}
+
+* {
+    box-sizing: border-box;
+    -webkit-tap-highlight-color: transparent;
+}
+
+body {
+    margin: 0;
+    padding: 0;
+    background-color: var(--bg-color);
+    color: var(--text-color);
+    font-family: 'Kanit', sans-serif;
+    height: 100vh;
+    overflow: hidden; /* Prevent scrolling */
+    display: flex;
+    flex-direction: column;
+}
+
+.app-container {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    position: relative;
+}
+
+/* Header */
+.app-header {
+    position: absolute;
+    top: 0;
+    width: 100%;
+    padding: 1rem;
+    background: linear-gradient(to bottom, rgba(0,0,0,0.8), transparent);
+    z-index: 10;
+    text-align: center;
+    pointer-events: none; /* Let touches pass through */
+}
+
+.app-header h1 {
+    margin: 0;
+    font-size: 1.2rem;
+    font-weight: 600;
+    color: var(--primary-color);
+    letter-spacing: 1px;
+    text-shadow: 0 2px 4px rgba(0,0,0,0.5);
+}
+
+/* Camera Viewport */
+.camera-viewport {
+    flex: 1;
+    position: relative;
+    background: #222;
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+#camera-feed {
+    width: 100%;
+    height: 100%;
+    object-fit: cover; /* Fill screen like a real camera app */
+    /* Mirror effect for selfie camera usually, logic handles this */
+}
+
+/* Overlay Layer */
+.overlay-layer {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none; /* Allow interaction if we add drag logic later */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 5;
+}
+
+.draggable {
+    pointer-events: auto; /* Allow dragging this specific element */
+    position: absolute;
+    border: 2px dashed rgba(255, 255, 255, 0.5);
+    padding: 10px;
+    min-width: 100px;
+    min-height: 100px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.draggable:active {
+    border-color: var(--primary-color);
+}
+
+.draggable img {
+    max-width: 200px;
+    max-height: 200px;
+    display: block;
+}
+
+#text-placeholder {
+    color: rgba(255,255,255,0.7);
+    font-size: 0.9rem;
+    text-align: center;
+}
+
+/* Hidden Canvas */
+#capture-canvas {
+    display: none;
+}
+
+/* Controls Footer */
+.controls-area {
+    height: var(--control-height);
+    background: #000;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    position: relative;
+    padding-bottom: 20px;
+}
+
+.shutter-wrapper {
+    position: absolute;
+    bottom: 30px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 20;
+}
+
+.shutter-btn {
+    width: 70px;
+    height: 70px;
+    border-radius: 50%;
+    background-color: transparent;
+    border: 4px solid white;
+    position: relative;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.shutter-btn::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 58px;
+    height: 58px;
+    border-radius: 50%;
+    background-color: white;
+    transition: all 0.1s;
+}
+
+.shutter-btn:active::after {
+    transform: translate(-50%, -50%) scale(0.9);
+    background-color: #ddd;
+}
+
+.top-controls {
+    width: 100%;
+    display: flex;
+    justify-content: space-around;
+    padding: 0 20px;
+    margin-bottom: 60px; /* Space for shutter */
+}
+
+.icon-btn {
+    background: rgba(255,255,255,0.1);
+    border: none;
+    color: white;
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    font-size: 1.2rem;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    backdrop-filter: blur(5px);
+}
+
+.file-input-wrapper {
+    position: relative;
+    overflow: hidden;
+    display: inline-block;
+}
+
+.file-input-wrapper input[type=file] {
+    position: absolute;
+    left: 0;
+    top: 0;
+    opacity: 0;
+    cursor: pointer;
+    height: 100%;
+    width: 100%;
+}
+
+/* Modal */
+.modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0,0,0,0.9);
+    z-index: 100;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    opacity: 1;
+    transition: opacity 0.3s;
+}
+
+.modal.hidden {
+    opacity: 0;
+    pointer-events: none;
+}
+
+.modal-content {
+    background: #1a1a1a;
+    padding: 20px;
+    border-radius: 16px;
+    width: 90%;
+    max-width: 400px;
+    text-align: center;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+}
+
+.modal-content h2 {
+    margin-top: 0;
+    color: var(--primary-color);
+}
+
+#captured-image {
+    width: 100%;
+    border-radius: 8px;
+    margin: 10px 0 20px;
+    border: 1px solid #333;
+}
+
+.modal-actions {
+    display: flex;
+    gap: 10px;
+    justify-content: center;
+}
+
+.primary-btn {
+    background: var(--primary-color);
+    color: #000;
+    border: none;
+    padding: 10px 20px;
+    border-radius: 20px;
+    font-weight: 600;
+    cursor: pointer;
+    flex: 1;
+}
+
+.text-btn {
+    background: transparent;
+    color: #aaa;
+    border: none;
+    padding: 10px 20px;
+    cursor: pointer;
+}

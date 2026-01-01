@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Camera Overlay App</title>
+    <link rel="stylesheet" href="style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;600&display=swap" rel="stylesheet">
+    <!-- Icon library -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+    <div class="app-container">
+        <!-- Header -->
+        <header class="app-header">
+            <h1>SignPhoto</h1>
+        </header>
+
+        <!-- Main Camera View -->
+        <main class="camera-viewport">
+            <!-- Video Feed -->
+            <video id="camera-feed" autoplay playsinline muted></video>
+            
+            <!-- Overlay Layer (Visual only, distinct from canvas used for saving) -->
+            <div id="overlay-container" class="overlay-layer">
+                <!-- Default Placeholder Text or Logo will go here -->
+                <div id="overlay-content" class="draggable">
+                    <span id="text-placeholder">วางโลโก้ที่นี่</span>
+                </div>
+            </div>
+
+            <!-- Canvas for capturing (Hidden) -->
+            <canvas id="capture-canvas"></canvas>
+        </main>
+
+        <!-- Controls -->
+        <footer class="controls-area">
+            
+            <div class="control-group top-controls">
+                <div class="file-input-wrapper">
+                    <button class="icon-btn secondary-btn" title="Add Logo">
+                        <i class="fa-solid fa-image"></i>
+                    </button>
+                    <input type="file" id="logo-upload" accept="image/png, image/jpeg, image/gif">
+                </div>
+                
+                <button id="toggle-camera-btn" class="icon-btn secondary-btn" title="Switch Camera">
+                    <i class="fa-solid fa-camera-rotate"></i>
+                </button>
+            </div>
+
+            <div class="shutter-wrapper">
+                <button id="shutter-btn" class="shutter-btn"></button>
+            </div>
+
+        </footer>
+    </div>
+    
+    <!-- Preview Modal (After capture) -->
+    <div id="preview-modal" class="modal hidden">
+        <div class="modal-content">
+            <h2>รูปภาพของคุณ</h2>
+            <img id="captured-image" src="" alt="Captured Photo">
+            <div class="modal-actions">
+                <button id="retake-btn" class="text-btn">ถ่ายใหม่</button>
+                <button id="download-btn" class="primary-btn">บันทึกรูปภาพ</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
