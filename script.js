@@ -18,6 +18,84 @@ document.addEventListener('DOMContentLoaded', () => {
     let stream = null;
     let facingMode = 'environment';
     let currentLogoImg = null;
+    let db = null;
+
+    // --- 0. IndexedDB Persistence ---
+    const DB_NAME = 'SignPhotoDB';
+    const DB_VERSION = 1;
+    const STORE_NAME = 'settings';
+
+    function initDB() {
+        return new Promise((resolve, reject) => {
+            const request = indexedDB.open(DB_NAME, DB_VERSION);
+
+            request.onerror = (event) => {
+                console.error("Database error: " + event.target.errorCode);
+                reject(event.target.error);
+            };
+
+            request.onsuccess = (event) => {
+                db = event.target.result;
+                resolve(db);
+                loadSavedImage(); // Load immediately after connection
+            };
+
+            request.onupgradeneeded = (event) => {
+                const db = event.target.result;
+                // Create an object store for settings if it doesn't exist
+                if (!db.objectStoreNames.contains(STORE_NAME)) {
+                    db.createObjectStore(STORE_NAME, { keyPath: 'id' });
+                }
+            };
+        });
+    }
+
+    function saveImageToDB(file) {
+        if (!db) return;
+
+        const transaction = db.transaction([STORE_NAME], 'readwrite');
+        const store = transaction.objectStore(STORE_NAME);
+
+        // simple key 'overlayImage'
+        const request = store.put({ id: 'overlayImage', blob: file });
+
+        request.onsuccess = () => {
+            console.log("Image saved to DB");
+        };
+
+        request.onerror = (e) => {
+            console.error("Error saving image", e);
+        };
+    }
+
+    function loadSavedImage() {
+        if (!db) return;
+
+        const transaction = db.transaction([STORE_NAME], 'readonly');
+        const store = transaction.objectStore(STORE_NAME);
+        const request = store.get('overlayImage');
+
+        request.onsuccess = (event) => {
+            const result = event.target.result;
+            if (result && result.blob) {
+                displayOverlayImage(result.blob);
+            }
+        };
+    }
+
+    function displayOverlayImage(blob) {
+        if (textPlaceholder) textPlaceholder.style.display = 'none';
+        overlayContent.innerHTML = '';
+
+        const img = document.createElement('img');
+        // createObjectURL is efficient and works with Blobs/Files
+        img.src = URL.createObjectURL(blob);
+        img.style.pointerEvents = 'none';
+        overlayContent.appendChild(img);
+
+        currentLogoImg = img;
+    }
+
 
     // --- 1. Camera Handling ---
     async function startCamera() {
@@ -38,7 +116,6 @@ document.addEventListener('DOMContentLoaded', () => {
             stream = await navigator.mediaDevices.getUserMedia(constraints);
             video.srcObject = stream;
 
-            // Mirror logic handled in CSS and Canvas Draw
             updateMirrorStyling();
 
         } catch (err) {
@@ -59,6 +136,8 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    // Initialize
+    initDB(); // Start DB connection
     startCamera();
 
     toggleCameraBtn.addEventListener('click', () => {
@@ -70,24 +149,14 @@ document.addEventListener('DOMContentLoaded', () => {
     logoInput.addEventListener('change', (e) => {
         const file = e.target.files[0];
         if (file) {
-            const reader = new FileReader();
-            reader.onload = (event) => {
-                if (textPlaceholder) textPlaceholder.style.display = 'none';
-                overlayContent.innerHTML = '';
-
-                const img = document.createElement('img');
-                img.src = event.target.result;
-                img.style.pointerEvents = 'none'; // Ensure drag events bubble to container logic if needed
-                overlayContent.appendChild(img);
-
-                currentLogoImg = img;
-            };
-            reader.readAsDataURL(file);
+            // Display immediately
+            displayOverlayImage(file);
+            // Save to DB
+            saveImageToDB(file);
         }
     });
 
     // --- Drag Logic ---
-    // Using touch/mouse events to move the #overlay-content div
     let isDragging = false;
     let currentX;
     let currentY;
@@ -148,7 +217,7 @@ document.addEventListener('DOMContentLoaded', () => {
         el.style.transform = `translate3d(${xPos}px, ${yPos}px, 0)`;
     }
 
-    // --- 3. Capture Logic with Correct Mapping ---
+    // --- 3. Capture Logic ---
     shutterBtn.addEventListener('click', () => {
         if (!video.videoWidth) return;
 
@@ -166,98 +235,39 @@ document.addEventListener('DOMContentLoaded', () => {
         ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
         ctx.restore();
 
-        // Calculate Scale & Offset for Overlay
-        // The video element uses object-fit: cover.
-        // We need to match precise visual coordinates to the full-res canvas.
+        // Overlay Calculation
         const videoRect = video.getBoundingClientRect();
-
-        // Rendered dimensions of the video content within the element
         const renderRatio = Math.max(videoRect.width / video.videoWidth, videoRect.height / video.videoHeight);
+
+        // This math assumes the video fills the container with object-fit: cover
+        // And the container IS the viewport or close to it.
         const renderWidth = video.videoWidth * renderRatio;
-        const renderHeight = video.videoHeight * renderRatio;
-
-        // Offsets (centering)
+        // Offsets
         const offsetX = (videoRect.width - renderWidth) / 2;
-        const offsetY = (videoRect.height - renderHeight) / 2;
+        // In this specific app, videoRect usually equals viewport, but let's be safe.
+        // Actually, if object-fit is cover, the visual image might be LARGER than element if not careful, 
+        // OR the element clips the image.
+        // If video element is 100vw/100vh and object-fit: cover, then renderWidth >= videoRect.width.
+        // So offsetX is <= 0.
 
-        // Overlay Position relative to the Viewport (same as videoRect starts)
+        // Element Position
         const overlayRect = dragItem.getBoundingClientRect();
 
-        // Calculate position relative to the *rendered video content*
-        // overlayRect.left is screen config. videoRect.left is screen config.
-        // The rendered video starts at videoRect.left + offsetX
-        const relativeX = overlayRect.left - (videoRect.left + offsetX);
-        const relativeY = overlayRect.top - (videoRect.top + offsetY);
+        // Calculate relative to the ACTUAL video pixels rendered
+        // The rendered video starts at: videoRect.left + offsetX
+        // The overlay is at: overlayRect.left
 
-        // Scale back to source resolution
+        // Relative X from the "start" of the video image
+        const relativeX = overlayRect.left - (videoRect.left + offsetX);
+        const relativeY = overlayRect.top - (videoRect.top + ((videoRect.height - (video.videoHeight * renderRatio)) / 2));
+
         const sourceX = relativeX / renderRatio;
         const sourceY = relativeY / renderRatio;
         const sourceW = overlayRect.width / renderRatio;
         const sourceH = overlayRect.height / renderRatio;
 
-        // Mapping for user facing camera mirror on overlay
-        // If mirroring, the x coordinate needs flip relative to the center or just standard flip?
-        // Standard flip: x' = width - x - w
-        if (facingMode === 'user') {
-            // For overlay, if we see it on left, it is on left.
-            // But valid canvas is mirrored. 
-            // If I physically move logo to left (screen left), and I capture:
-            // The video is mirrored. My left face is on the right of image.
-            // The logo is on the left of screen.
-            // Should the logo stay on the left? or follow the reflection?
-            // Usually overlays are post-fx, so they should stick to visual "screen" coordinates.
-            // If I see logo on left cheek, it should be on left cheek in output.
-            // Left cheek in mirrored view is Left Screen.
-            // Left cheek in unmirrored (true) view is Right Side of image.
-
-            // The ctx.drawImage(video) above handled un-mirroring (or rather re-mirroring to act like a mirror? No).
-            // Standard camera app: Selfie preview is mirrored. Saved file is usually NOT mirrored (marketing standard), OR mirrored (user preference).
-            // Let's stick to "What You See Is What You Get" relative to the frame.
-
-            // If I mirror the video draw:
-            // ctx.scale(-1, 1); ctx.drawImage(...)
-            // This produces a mirrored image (text is backward).
-            // If user wants readable text logo, they shouldn't mirror capture?
-            // BUT, if the logo is added *after* mirror?
-
-            // Current logic:
-            // 1. Draw video mirrored (as user sees it).
-            // 2. Draw text/logo.
-            // This gives a final image that is a mirror of reality. (Text in video is backwards, Logo is forwards).
-
-            // If we just use the calculated 'sourceX' which is from Left to Right on screen.
-            // And we draw on a mirrored canvas?
-
-            // Let's simplify: We want to draw exactly what is on the element onto the canvas.
-            // If we mirrored the video draw context, the coordinate system is flipped?
-            // No, I used ctx.save() / ctx.restore() for the video draw.
-            // So context is back to normal (0,0 is top-left).
-
-            // But the video image on canvas is now FLIPPED relative to source?
-            // Yes, I did `ctx.translate(w,0); ctx.scale(-1,1)`.
-            // So the pixel at x=0 in source is at x=W in canvas.
-
-            // Visual Alignment:
-            // User sees Video pixel A at Screen Left.
-            // User places Logo at Screen Left.
-            // In Canvas:
-            // Video pixel A effectively drawn at Canvas Left (because we mirrored the draw to match preview).
-            // So we should draw Logo at Canvas Left.
-            // So 'sourceX' (calculated from screen left) is correct.
-
-            // Wait, `video.style.transform = scaleX(-1)` mirrors the VISUAL element.
-            // So the user sees a mirrored version.
-            // Video Source (Raw) -> Mirrored CSS -> User's Eyes.
-            // Canvas Draw:
-            // Video Source (Raw) -> ctx.scale(-1, 1) -> Canvas.
-            // So Canvas matches User's Eyes.
-            // Logic holds.
-        }
-
         if (currentLogoImg) {
             ctx.drawImage(currentLogoImg, sourceX, sourceY, sourceW, sourceH);
-        } else {
-            // Draw placeholder text if wanted?
         }
 
         // Show Result
