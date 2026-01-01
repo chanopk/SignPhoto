@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
@@ -9,6 +10,7 @@
     <!-- Icon library -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
+
 <body>
     <div class="app-container">
         <!-- Header -->
@@ -20,7 +22,7 @@
         <main class="camera-viewport">
             <!-- Video Feed -->
             <video id="camera-feed" autoplay playsinline muted></video>
-            
+
             <!-- Overlay Layer (Visual only, distinct from canvas used for saving) -->
             <div id="overlay-container" class="overlay-layer">
                 <!-- Default Placeholder Text or Logo will go here -->
@@ -35,7 +37,7 @@
 
         <!-- Controls -->
         <footer class="controls-area">
-            
+
             <div class="control-group top-controls">
                 <div class="file-input-wrapper">
                     <button class="icon-btn secondary-btn" title="Add Logo">
@@ -43,7 +45,12 @@
                     </button>
                     <input type="file" id="logo-upload" accept="image/png, image/jpeg, image/gif">
                 </div>
-                
+
+                <div class="slider-wrapper">
+                    <i class="fa-solid fa-expand icon-sm"></i>
+                    <input type="range" id="size-slider" min="0.1" max="3" step="0.1" value="1">
+                </div>
+
                 <button id="toggle-camera-btn" class="icon-btn secondary-btn" title="Switch Camera">
                     <i class="fa-solid fa-camera-rotate"></i>
                 </button>
@@ -55,7 +62,7 @@
 
         </footer>
     </div>
-    
+
     <!-- Preview Modal (After capture) -->
     <div id="preview-modal" class="modal hidden">
         <div class="modal-content">
@@ -70,4 +77,5 @@
 
     <script src="script.js"></script>
 </body>
+
 </html>

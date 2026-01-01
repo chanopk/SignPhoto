@@ -1,5 +1,6 @@
 :root {
-    --primary-color: #ffcc00; /* Vibrant Yellow/Gold */
+    --primary-color: #ffcc00;
+    /* Vibrant Yellow/Gold */
     --bg-color: #000000;
     --overlay-bg: rgba(0, 0, 0, 0.6);
     --text-color: #ffffff;
@@ -18,7 +19,8 @@ body {
     color: var(--text-color);
     font-family: 'Kanit', sans-serif;
     height: 100vh;
-    overflow: hidden; /* Prevent scrolling */
+    overflow: hidden;
+    /* Prevent scrolling */
     display: flex;
     flex-direction: column;
 }
@@ -36,10 +38,11 @@ body {
     top: 0;
     width: 100%;
     padding: 1rem;
-    background: linear-gradient(to bottom, rgba(0,0,0,0.8), transparent);
+    background: linear-gradient(to bottom, rgba(0, 0, 0, 0.8), transparent);
     z-index: 10;
     text-align: center;
-    pointer-events: none; /* Let touches pass through */
+    pointer-events: none;
+    /* Let touches pass through */
 }
 
 .app-header h1 {
@@ -48,7 +51,7 @@ body {
     font-weight: 600;
     color: var(--primary-color);
     letter-spacing: 1px;
-    text-shadow: 0 2px 4px rgba(0,0,0,0.5);
+    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
 }
 
 /* Camera Viewport */
@@ -65,7 +68,8 @@ body {
 #camera-feed {
     width: 100%;
     height: 100%;
-    object-fit: cover; /* Fill screen like a real camera app */
+    object-fit: cover;
+    /* Fill screen like a real camera app */
     /* Mirror effect for selfie camera usually, logic handles this */
 }
 
@@ -76,7 +80,8 @@ body {
     left: 0;
     width: 100%;
     height: 100%;
-    pointer-events: none; /* Allow interaction if we add drag logic later */
+    pointer-events: none;
+    /* Allow interaction if we add drag logic later */
     display: flex;
     align-items: center;
     justify-content: center;
@@ -84,7 +89,8 @@ body {
 }
 
 .draggable {
-    pointer-events: auto; /* Allow dragging this specific element */
+    pointer-events: auto;
+    /* Allow dragging this specific element */
     position: absolute;
     border: 2px dashed rgba(255, 255, 255, 0.5);
     padding: 10px;
@@ -106,7 +112,7 @@ body {
 }
 
 #text-placeholder {
-    color: rgba(255,255,255,0.7);
+    color: rgba(255, 255, 255, 0.7);
     font-size: 0.9rem;
     text-align: center;
 }
@@ -170,11 +176,12 @@ body {
     display: flex;
     justify-content: space-around;
     padding: 0 20px;
-    margin-bottom: 60px; /* Space for shutter */
+    margin-bottom: 60px;
+    /* Space for shutter */
 }
 
 .icon-btn {
-    background: rgba(255,255,255,0.1);
+    background: rgba(255, 255, 255, 0.1);
     border: none;
     color: white;
     width: 44px;
@@ -186,6 +193,8 @@ body {
     align-items: center;
     justify-content: center;
     backdrop-filter: blur(5px);
+    gap: 15px;
+    z-index: 10;
 }
 
 .file-input-wrapper {
@@ -199,9 +208,43 @@ body {
     left: 0;
     top: 0;
     opacity: 0;
-    cursor: pointer;
-    height: 100%;
     width: 100%;
+    height: 100%;
+    cursor: pointer;
+}
+
+.slider-wrapper {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: rgba(0, 0, 0, 0.5);
+    padding: 5px 10px;
+    border-radius: 20px;
+    backdrop-filter: blur(5px);
+}
+
+.slider-wrapper .icon-sm {
+    color: white;
+    font-size: 0.8rem;
+}
+
+input[type=range] {
+    -webkit-appearance: none;
+    width: 100px;
+    height: 4px;
+    background: rgba(255, 255, 255, 0.3);
+    border-radius: 2px;
+    outline: none;
+}
+
+input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 16px;
+    height: 16px;
+    background: #ffffff;
+    border-radius: 50%;
+    cursor: pointer;
 }
 
 /* Modal */
@@ -211,7 +254,7 @@ body {
     left: 0;
     width: 100%;
     height: 100%;
-    background: rgba(0,0,0,0.9);
+    background: rgba(0, 0, 0, 0.9);
     z-index: 100;
     display: flex;
     justify-content: center;
@@ -232,7 +275,7 @@ body {
     width: 90%;
     max-width: 400px;
     text-align: center;
-    box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
 }
 
 .modal-content h2 {

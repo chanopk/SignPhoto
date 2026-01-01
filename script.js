@@ -7,6 +7,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const logoInput = document.getElementById('logo-upload');
     const overlayContent = document.getElementById('overlay-content');
     const textPlaceholder = document.getElementById('text-placeholder');
+    const sizeSlider = document.getElementById('size-slider');
 
     // Modal Elements
     const modal = document.getElementById('preview-modal');
@@ -18,12 +19,20 @@ document.addEventListener('DOMContentLoaded', () => {
     let stream = null;
     let facingMode = 'environment';
     let currentLogoImg = null;
+    let currentLogoUrl = null; // Track URL for memory cleanup
     let db = null;
+
+    // Transform State
+    let currentX = 0;
+    let currentY = 0;
+    let currentScale = 1;
+    let xOffset = 0;
+    let yOffset = 0;
 
     // --- 0. IndexedDB Persistence ---
     const DB_NAME = 'SignPhotoDB';
     const DB_VERSION = 1;
-    const STORE_NAME = 'settings';
+    const STORE_SETTINGS = 'settings';
 
     function initDB() {
         return new Promise((resolve, reject) => {
@@ -37,14 +46,13 @@ document.addEventListener('DOMContentLoaded', () => {
             request.onsuccess = (event) => {
                 db = event.target.result;
                 resolve(db);
-                loadSavedImage(); // Load immediately after connection
+                loadSavedData();
             };
 
             request.onupgradeneeded = (event) => {
                 const db = event.target.result;
-                // Create an object store for settings if it doesn't exist
-                if (!db.objectStoreNames.contains(STORE_NAME)) {
-                    db.createObjectStore(STORE_NAME, { keyPath: 'id' });
+                if (!db.objectStoreNames.contains(STORE_SETTINGS)) {
+                    db.createObjectStore(STORE_SETTINGS, { keyPath: 'id' });
                 }
             };
         });
@@ -52,31 +60,55 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function saveImageToDB(file) {
         if (!db) return;
-
-        const transaction = db.transaction([STORE_NAME], 'readwrite');
-        const store = transaction.objectStore(STORE_NAME);
-
-        // simple key 'overlayImage'
-        const request = store.put({ id: 'overlayImage', blob: file });
-
-        request.onsuccess = () => {
-            console.log("Image saved to DB");
-        };
-
-        request.onerror = (e) => {
-            console.error("Error saving image", e);
-        };
+        const transaction = db.transaction([STORE_SETTINGS], 'readwrite');
+        const store = transaction.objectStore(STORE_SETTINGS);
+        store.put({ id: 'overlayImage', blob: file });
     }
 
-    function loadSavedImage() {
+    // Debounce saving settings to avoid spamming DB on every drag/resize
+    let saveTimeout;
+    function saveSettingsToDB() {
+        if (!db) return;
+        clearTimeout(saveTimeout);
+        saveTimeout = setTimeout(() => {
+            const transaction = db.transaction([STORE_SETTINGS], 'readwrite');
+            const store = transaction.objectStore(STORE_SETTINGS);
+            store.put({
+                id: 'overlaySettings',
+                x: xOffset,
+                y: yOffset,
+                scale: currentScale
+            });
+        }, 500);
+    }
+
+    function loadSavedData() {
         if (!db) return;
 
-        const transaction = db.transaction([STORE_NAME], 'readonly');
-        const store = transaction.objectStore(STORE_NAME);
-        const request = store.get('overlayImage');
+        const transaction = db.transaction([STORE_SETTINGS], 'readonly');
+        const store = transaction.objectStore(STORE_SETTINGS);
 
-        request.onsuccess = (event) => {
-            const result = event.target.result;
+        // Load Settings
+        const settingsReq = store.get('overlaySettings');
+        settingsReq.onsuccess = (e) => {
+            const data = e.target.result;
+            if (data) {
+                currentX = data.x || 0;
+                currentY = data.y || 0;
+                xOffset = data.x || 0;
+                yOffset = data.y || 0;
+                currentScale = data.scale || 1;
+
+                // Update UI immediately (if element exists)
+                updateTransform();
+                if (sizeSlider) sizeSlider.value = currentScale;
+            }
+        };
+
+        // Load Image
+        const imageReq = store.get('overlayImage');
+        imageReq.onsuccess = (e) => {
+            const result = e.target.result;
             if (result && result.blob) {
                 displayOverlayImage(result.blob);
             }
@@ -84,12 +116,17 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function displayOverlayImage(blob) {
+        // Memory cleanup
+        if (currentLogoUrl) {
+            URL.revokeObjectURL(currentLogoUrl);
+        }
+
         if (textPlaceholder) textPlaceholder.style.display = 'none';
         overlayContent.innerHTML = '';
 
         const img = document.createElement('img');
-        // createObjectURL is efficient and works with Blobs/Files
-        img.src = URL.createObjectURL(blob);
+        currentLogoUrl = URL.createObjectURL(blob);
+        img.src = currentLogoUrl;
         img.style.pointerEvents = 'none';
         overlayContent.appendChild(img);
 
@@ -137,7 +174,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // Initialize
-    initDB(); // Start DB connection
+    initDB();
     startCamera();
 
     toggleCameraBtn.addEventListener('click', () => {
@@ -145,26 +182,28 @@ document.addEventListener('DOMContentLoaded', () => {
         startCamera();
     });
 
-    // --- 2. Overlay Handling (Logo Upload) ---
+    // --- 2. Overlay Handling ---
     logoInput.addEventListener('change', (e) => {
         const file = e.target.files[0];
         if (file) {
-            // Display immediately
             displayOverlayImage(file);
-            // Save to DB
             saveImageToDB(file);
         }
     });
 
+    // Slider Handling
+    sizeSlider.addEventListener('input', (e) => {
+        currentScale = parseFloat(e.target.value);
+        updateTransform();
+        saveSettingsToDB();
+    });
+
     // --- Drag Logic ---
     let isDragging = false;
-    let currentX;
-    let currentY;
     let initialX;
     let initialY;
-    let xOffset = 0;
-    let yOffset = 0;
 
+    // Use container logic but apply to overlayContent
     const dragItem = document.getElementById("overlay-content");
     const container = document.querySelector(".overlay-layer");
 
@@ -177,6 +216,7 @@ document.addEventListener('DOMContentLoaded', () => {
     container.addEventListener("mousemove", drag);
 
     function dragStart(e) {
+        // Allow dragging if touching the item or its children
         if (e.target === dragItem || dragItem.contains(e.target)) {
             if (e.type === "touchstart") {
                 initialX = e.touches[0].clientX - xOffset;
@@ -190,9 +230,12 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function dragEnd(e) {
-        initialX = currentX;
-        initialY = currentY;
-        isDragging = false;
+        if (isDragging) {
+            initialX = currentX;
+            initialY = currentY;
+            isDragging = false;
+            saveSettingsToDB(); // Save position on drop
+        }
     }
 
     function drag(e) {
@@ -209,12 +252,13 @@ document.addEventListener('DOMContentLoaded', () => {
             xOffset = currentX;
             yOffset = currentY;
 
-            setTranslate(currentX, currentY, dragItem);
+            updateTransform();
         }
     }
 
-    function setTranslate(xPos, yPos, el) {
-        el.style.transform = `translate3d(${xPos}px, ${yPos}px, 0)`;
+    function updateTransform() {
+        // Apply both translate and scale
+        dragItem.style.transform = `translate3d(${xOffset}px, ${yOffset}px, 0) scale(${currentScale})`;
     }
 
     // --- 3. Capture Logic ---
@@ -223,7 +267,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
         canvas.width = video.videoWidth;
         canvas.height = video.videoHeight;
-
         const ctx = canvas.getContext('2d');
 
         // Draw Video
@@ -235,32 +278,23 @@ document.addEventListener('DOMContentLoaded', () => {
         ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
         ctx.restore();
 
-        // Overlay Calculation
+        // Calculate Scale & Offset
         const videoRect = video.getBoundingClientRect();
         const renderRatio = Math.max(videoRect.width / video.videoWidth, videoRect.height / video.videoHeight);
-
-        // This math assumes the video fills the container with object-fit: cover
-        // And the container IS the viewport or close to it.
         const renderWidth = video.videoWidth * renderRatio;
-        // Offsets
+        // The container/viewport offsets:
         const offsetX = (videoRect.width - renderWidth) / 2;
-        // In this specific app, videoRect usually equals viewport, but let's be safe.
-        // Actually, if object-fit is cover, the visual image might be LARGER than element if not careful, 
-        // OR the element clips the image.
-        // If video element is 100vw/100vh and object-fit: cover, then renderWidth >= videoRect.width.
-        // So offsetX is <= 0.
 
-        // Element Position
+        // Element Position (Get bounding rect includes transforms like scale!)
+        // However, we want the "visual" rect to map to pixels.
         const overlayRect = dragItem.getBoundingClientRect();
 
-        // Calculate relative to the ACTUAL video pixels rendered
-        // The rendered video starts at: videoRect.left + offsetX
-        // The overlay is at: overlayRect.left
-
-        // Relative X from the "start" of the video image
+        // Canvas Mapping
+        // Relative X from the "start" of the video content
         const relativeX = overlayRect.left - (videoRect.left + offsetX);
         const relativeY = overlayRect.top - (videoRect.top + ((videoRect.height - (video.videoHeight * renderRatio)) / 2));
 
+        // Scale back to source resolution
         const sourceX = relativeX / renderRatio;
         const sourceY = relativeY / renderRatio;
         const sourceW = overlayRect.width / renderRatio;
